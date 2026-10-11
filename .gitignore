@@ -31,3 +31,6 @@ cafe-config.json
 
 # Saved daily order exports
 orders-*.json
+
+# User-specific files (menus, old exports)
+Archive/
