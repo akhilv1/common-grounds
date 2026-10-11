@@ -80,17 +80,13 @@ const DEFAULT_CONFIG = {
   closedMessage:"We're not open yet — check back soon.",
   accessCode:"",
   photoEnabled:true,
-  // Optional post-order screen shown to guests after placing an order.
-  // Disabled by default. Use for compliments, feedback, tips — anything you like.
-  postOrderEnabled: false,
-  postOrderTitle: "Leave a compliment",
-  postOrderSubtitle: "A little note for your barista.",
-  postOrderEmoji: "☕",
-  postOrderOptions: [
-    {id:"po-1", label:"Amazing ☕"},
-    {id:"po-2", label:"Made my day 🌟"},
-    {id:"po-3", label:"Best barista 🏆"},
-    {id:"po-4", label:"10/10 would order again"},
+  // Joke tipping screen (no real payments). Disabled by default.
+  tipsEnabled:false,
+  tipOptions:[
+    {id:"tip-15", kind:"percent", amount:15, description:"Thanks!"},
+    {id:"tip-20", kind:"percent", amount:20, description:"You're a gem"},
+    {id:"tip-25", kind:"percent", amount:25, description:"Barista's favorite"},
+    {id:"tip-cash", kind:"cash", amount:5, description:"Coffee karma"},
   ],
   options: DEFAULT_OPTIONS,
   // Menu categories, in display order. Each drink references one via `categoryId`.
@@ -257,10 +253,11 @@ const GlobalStyles = ({ theme }) => {
         .dtile-name{font-size:13.5px;font-weight:600;color:${C.text};line-height:1.3;margin-bottom:3px}
         .dtile-desc{font-size:11.5px;color:${C.textMuted};line-height:1.4;margin-top:3px}
         .menu-section-title{font-family:${F.display};font-size:16px;font-weight:600;color:${C.headingText};margin:20px 0 9px;padding-bottom:5px;border-bottom:1.5px solid ${C.border}}
-        .po-opt{display:flex;align-items:center;justify-content:center;width:100%;text-align:center;padding:15px 17px;border:2px solid ${C.border};border-radius:11px;background:${C.cardBg};color:${C.text};cursor:pointer;transition:all .15s;font-family:inherit}
-        .po-opt:hover{border-color:${C.highlight};background:${C.cardAlt}}
-        .po-opt-label{font-size:19px;font-weight:700;color:${C.accent}}
-        .qpo{display:inline-block;margin-top:7px;font-size:11.5px;font-weight:600;color:${C.highlight};background:${C.cardAlt};border:1px solid ${C.border};border-radius:100px;padding:2px 10px}
+        .tip-opt{display:flex;align-items:baseline;gap:11px;width:100%;text-align:left;padding:15px 17px;border:2px solid ${C.border};border-radius:11px;background:${C.cardBg};color:${C.text};cursor:pointer;transition:all .15s;font-family:inherit}
+        .tip-opt:hover{border-color:${C.highlight};background:${C.cardAlt}}
+        .tip-opt-amt{font-size:19px;font-weight:700;color:${C.accent};flex-shrink:0}
+        .tip-opt-desc{font-size:13px;opacity:.7}
+        .qtip{display:inline-block;margin-top:7px;font-size:11.5px;font-weight:600;color:${C.highlight};background:${C.cardAlt};border:1px solid ${C.border};border-radius:100px;padding:2px 10px}
         .pills{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:18px}
         .pill{padding:6px 15px;border:2px solid ${C.border};border-radius:100px;font-size:12.5px;font-weight:500;cursor:pointer;transition:all .15s;background:${C.cardBg};color:${C.text};display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:34px;text-align:center}
         .pill:hover{border-color:${C.accentLight}}
@@ -425,35 +422,22 @@ const PinScreen = ({ mode, storedHash, onSuccess, onSetPin }) => {
 // ─────────────────────────────────────────────
 // OPTION ROW (admin) — add/edit/delete option types
 // ─────────────────────────────────────────────
-const PostOrderOptionRow = ({ opt, onUpdate, onDelete }) => {
-  const [editing, setEditing] = useState(false);
-  const [label, setLabel] = useState(opt.label||"");
-  const save = () => { onUpdate({...opt,label:label.trim()}); setEditing(false); };
-  const cancel = () => { setLabel(opt.label||""); setEditing(false); };
-  return (
-    <div className="mrow">
-      <div className="mrow-header">
-        {editing ? (
-          <div className="field" style={{marginBottom:0,flex:1}}>
-            <input value={label} onChange={e=>setLabel(e.target.value)}
-              placeholder="e.g. Amazing ☕" maxLength={40} autoFocus/>
-          </div>
-        ) : (
-          <div className="mrow-info">
-            <div className="mrow-name">{opt.label||<span style={{opacity:.4,fontStyle:"italic"}}>No label</span>}</div>
-          </div>
-        )}
-        <div className="mrow-actions">
-          {editing
-            ? <><button className="btn btn-o sm" onClick={cancel}>Cancel</button>
-                <button className="btn btn-p sm" disabled={!label.trim()} onClick={save}>Save</button></>
-            : <button className="btn btn-o sm" onClick={()=>setEditing(true)}>Edit</button>}
-          <button className="btn btn-d sm" onClick={()=>onDelete(opt.id)}>✕</button>
-        </div>
+const TipOptionRow = ({ tip, onUpdate, onDelete }) => (
+  <div className="opt-row" style={{padding:"10px 12px"}}>
+    <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+      <div style={{display:"flex",gap:5,flexShrink:0}}>
+        <button className={`mtoggle ${tip.kind!=="cash"?"on":"off"}`} onClick={()=>onUpdate({...tip,kind:"percent"})} title="Percentage">%</button>
+        <button className={`mtoggle ${tip.kind==="cash"?"on":"off"}`} onClick={()=>onUpdate({...tip,kind:"cash"})} title="Cash amount">$</button>
       </div>
+      <input type="number" min="0" value={tip.amount===""?"":tip.amount}
+        onChange={e=>onUpdate({...tip,amount:e.target.value===""?"":Math.max(0,Number(e.target.value))})}
+        style={{width:74,flexShrink:0}} aria-label="Amount"/>
+      <input value={tip.description||""} onChange={e=>onUpdate({...tip,description:e.target.value})}
+        placeholder="Description (e.g. You're the best)" maxLength={60} style={{flex:1,minWidth:130}}/>
+      <button className="btn btn-d sm" style={{flexShrink:0}} onClick={()=>onDelete(tip.id)}>✕</button>
     </div>
-  );
-};
+  </div>
+);
 
 const CategoryRow = ({ cat, onUpdate, onDelete, onMoveUp, onMoveDown }) => {
   const [editing, setEditing] = useState(false);
@@ -496,18 +480,22 @@ const OptionRow = ({ opt, onUpdate, onDelete }) => {
   const [open, setOpen] = useState(false);
   const [label, setLabel] = useState(opt.label||"");
   const [choices, setChoices] = useState((opt.choices||[]).map(normalizeChoice));
+  const [defaultChoiceId, setDefaultChoiceId] = useState(opt.defaultChoiceId||null);
   const [newChoice, setNewChoice] = useState({name:"",description:""});
   const [editingChoiceId, setEditingChoiceId] = useState(null);
   const [editDraft, setEditDraft] = useState({name:"",description:""});
 
   const save = () => {
     if (!label.trim()||choices.length===0) return;
-    onUpdate({...opt, label:label.trim(), choices});
+    // null (not undefined) when no/stale default — Firebase rejects undefined.
+    const def = choices.some(c=>c.id===defaultChoiceId) ? defaultChoiceId : null;
+    onUpdate({...opt, label:label.trim(), choices, defaultChoiceId:def});
     setOpen(false);
   };
   const cancel = () => {
     setLabel(opt.label||"");
     setChoices((opt.choices||[]).map(normalizeChoice));
+    setDefaultChoiceId(opt.defaultChoiceId||null);
     setNewChoice({name:"",description:""});
     setEditingChoiceId(null);
     setOpen(false);
@@ -517,7 +505,7 @@ const OptionRow = ({ opt, onUpdate, onDelete }) => {
     setChoices(prev=>[...prev,{id:uid(),name:newChoice.name.trim(),description:newChoice.description.trim()}]);
     setNewChoice({name:"",description:""});
   };
-  const removeChoice = (id) => setChoices(prev=>prev.filter(c=>c.id!==id));
+  const removeChoice = (id) => { setChoices(prev=>prev.filter(c=>c.id!==id)); setDefaultChoiceId(d=>d===id?null:d); };
   const startEdit = (c) => { setEditingChoiceId(c.id); setEditDraft({name:c.name,description:c.description}); };
   const saveEdit = (id) => {
     if (!editDraft.name.trim()) return;
@@ -551,6 +539,7 @@ const OptionRow = ({ opt, onUpdate, onDelete }) => {
           {/* Existing choices */}
           <div style={{marginBottom:10}}>
             <div className="subsection">Choices</div>
+            {choices.length>0&&<div className="hint" style={{marginTop:-2,marginBottom:8}}>Select the ◉ default choice guests start with.</div>}
             {choices.length===0&&<div style={{fontSize:13,opacity:.5,marginBottom:8}}>No choices yet.</div>}
             {choices.map(c=>(
               <div key={c.id} style={{background:"rgba(0,0,0,.04)",borderRadius:8,padding:"10px 12px",marginBottom:7}}>
@@ -573,8 +562,9 @@ const OptionRow = ({ opt, onUpdate, onDelete }) => {
                   </div>
                 ) : (
                   <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <input type="radio" name={`def-${opt.id}`} checked={defaultChoiceId===c.id} onChange={()=>setDefaultChoiceId(c.id)} title="Set as default" style={{cursor:"pointer",flexShrink:0}}/>
                     <div style={{flex:1}}>
-                      <div style={{fontSize:13.5,fontWeight:500}}>{c.name}</div>
+                      <div style={{fontSize:13.5,fontWeight:500}}>{c.name}{defaultChoiceId===c.id&&<span style={{marginLeft:7,fontSize:10.5,fontWeight:600,opacity:.6,textTransform:"uppercase",letterSpacing:".04em"}}>Default</span>}</div>
                       {c.description&&<div style={{fontSize:12,opacity:.6,marginTop:2}}>{c.description}</div>}
                     </div>
                     <button className="btn btn-o sm" onClick={()=>startEdit(c)}>Edit</button>
@@ -1016,10 +1006,10 @@ const Admin = ({ config, setConfig, isOpen, setIsOpen, orders, completed, onClea
     upd({categories:list});
   };
 
-  const postOrderOpts = config.postOrderOptions||[];
-  const updatePostOrderOpt = (u) => upd({postOrderOptions:postOrderOpts.map(o=>o.id===u.id?u:o)});
-  const addPostOrderOpt = () => upd({postOrderOptions:[...postOrderOpts,{id:uid(),label:""}]});
-  const deletePostOrderOpt = (id) => upd({postOrderOptions:postOrderOpts.filter(o=>o.id!==id)});
+  const tips = config.tipOptions||[];
+  const updateTip = (u) => upd({tipOptions:tips.map(t=>t.id===u.id?u:t)});
+  const addTip = () => upd({tipOptions:[...tips,{id:uid(),kind:"percent",amount:20,description:""}]});
+  const deleteTip = (id) => upd({tipOptions:tips.filter(t=>t.id!==id)});
 
   const updateOption = (updated) => upd({options:config.options.map(o=>o.id===updated.id?updated:o)});
   const deleteOption = (id) => {
@@ -1208,39 +1198,23 @@ const Admin = ({ config, setConfig, isOpen, setIsOpen, orders, completed, onClea
         </div>
       </div>
 
-      {/* Post-Order Screen */}
+      {/* Tips (just for fun) */}
       <div className="card">
-        <div className="eyebrow">Post-Order Screen</div>
+        <div className="eyebrow">Tips</div>
         <div className="trow" style={{marginTop:7}}>
-          <div className="tlabel">Enabled <span style={{opacity:.5,fontWeight:400}}>— shown after guests place an order</span></div>
-          <button className={`tog ${config.postOrderEnabled?"on":"off"}`} onClick={()=>upd({postOrderEnabled:!config.postOrderEnabled})}/>
+          <div className="tlabel">Tip screen <span style={{opacity:.5,fontWeight:400}}>— a joke step, no real payments</span></div>
+          <button className={`tog ${config.tipsEnabled?"on":"off"}`} onClick={()=>upd({tipsEnabled:!config.tipsEnabled})}/>
         </div>
-        {config.postOrderEnabled && (
-          <div style={{marginTop:12}}>
-            <div style={{fontSize:12.5,opacity:.55,marginBottom:14,lineHeight:1.5}}>
-              An optional screen guests see after placing their order. Use it for compliments, feedback, tips, etc.
+        {config.tipsEnabled && (
+          <div style={{marginTop:10}}>
+            <div style={{fontSize:12.5,opacity:.55,marginBottom:12,lineHeight:1.5}}>
+              Guests see these after placing an order. Toggle each between a percentage (%) and a cash amount ($), and add a cheeky description.
             </div>
-            <div className="f2" style={{marginBottom:10}}>
-              <div className="field" style={{marginBottom:0}}>
-                <label>Emoji</label>
-                <input value={config.postOrderEmoji||""} onChange={e=>upd({postOrderEmoji:e.target.value})} maxLength={2} style={{width:64,fontSize:24,textAlign:"center",padding:"6px 8px"}}/>
-              </div>
-              <div className="field" style={{marginBottom:0}}>
-                <label>Screen title</label>
-                <input value={config.postOrderTitle||""} onChange={e=>upd({postOrderTitle:e.target.value})} maxLength={60} placeholder="e.g. Leave a compliment"/>
-              </div>
-            </div>
-            <div className="field" style={{marginBottom:14}}>
-              <label>Subtitle</label>
-              <input value={config.postOrderSubtitle||""} onChange={e=>upd({postOrderSubtitle:e.target.value})} maxLength={120} placeholder="e.g. A little note for your barista."/>
-            </div>
-            <div className="subsection">Options</div>
-            <div className="hint" style={{marginBottom:10}}>Each option is shown large on the guest screen.</div>
-            {postOrderOpts.length===0&&<div style={{fontSize:13.5,opacity:.5,padding:"4px 0 10px"}}>No options yet.</div>}
-            {postOrderOpts.map(o=>(
-              <PostOrderOptionRow key={o.id} opt={o} onUpdate={updatePostOrderOpt} onDelete={deletePostOrderOpt}/>
+            {tips.length===0&&<div style={{fontSize:13.5,opacity:.5,padding:"4px 0 10px"}}>No tip options yet.</div>}
+            {tips.map(t=>(
+              <TipOptionRow key={t.id} tip={t} onUpdate={updateTip} onDelete={deleteTip}/>
             ))}
-            <button className="btn btn-o sm" style={{marginTop:4}} onClick={addPostOrderOpt}>Add option</button>
+            <button className="btn btn-o sm" style={{marginTop:4}} onClick={addTip}>Add tip option</button>
           </div>
         )}
       </div>
@@ -1332,8 +1306,8 @@ const Guest = ({ config, isOpen, onOrder }) => {
   const [message, setMessage] = useState("");
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [postOrderStep, setPostOrderStep] = useState(false); // showing the post-order screen?
-  const [postOrderChoice, setPostOrderChoice] = useState(null); // chosen post-order option
+  const [tipStep, setTipStep] = useState(false); // showing the joke tip screen?
+  const [tip, setTip] = useState(null);          // chosen tip (for the confirmation)
   const [cam, setCam] = useState(false);
   const vidRef = useRef(null);
   const streamRef = useRef(null);
@@ -1347,7 +1321,14 @@ const Guest = ({ config, isOpen, onOrder }) => {
     // Pre-select each option's default choice (or its first choice as a fallback).
     const d = config.menu.find(x=>x.id===id);
     const opts = d ? (config.options||[]).filter(o=>(d.optionIds||[]).includes(o.id)) : [];
-    setSelections({});
+    const init = {};
+    for (const o of opts) {
+      const cs = o.choices||[];
+      if (!cs.length) continue;
+      const def = cs.find(c=>c.id===o.defaultChoiceId) || cs[0];
+      init[o.id] = def.name || def;
+    }
+    setSelections(init);
     setPickerOpen(false); // collapse the list to bring options into focus
   };
 
@@ -1375,13 +1356,14 @@ const Guest = ({ config, isOpen, onOrder }) => {
   };
   const stopCam = () => { streamRef.current?.getTracks().forEach(t=>t.stop()); setCam(false); };
 
-  const postOrderOn = config.postOrderEnabled && (config.postOrderOptions||[]).length > 0;
+  const tipsOn = config.tipsEnabled && (config.tipOptions||[]).length > 0;
+  const tipLabel = (t) => t.kind==="cash" ? `$${t.amount}` : `${t.amount}%`;
 
-  // Finalize the order, optionally attaching a post-order screen choice.
-  const placeOrder = useCallback((postOrderChoice) => {
+  // Finalize the order, optionally attaching a (joke) tip choice.
+  const placeOrder = useCallback((tipChoice) => {
     if (busy) return;
     const clean=sanitizeName(name);
-    if (!clean) { setNameErr("Please enter your name"); setPostOrderStep(false); return; }
+    if (!clean) { setNameErr("Please enter your name"); setTipStep(false); return; }
     setBusy(true);
     // Store each mod with its option label + choice description so the queue is
     // self-explanatory (e.g. "Drink Size: Regular" instead of a bare "Regular").
@@ -1391,20 +1373,20 @@ const Guest = ({ config, isOpen, onOrder }) => {
       return { label:o.label, value, description:(choice&&choice.description)||"" };
     });
     const order = {id:uid(),name:clean,photo,drink:drink.name,mods,request:request.trim().slice(0,MAX_REQUEST_LENGTH),message:message.trim().slice(0,MAX_MESSAGE_LENGTH),timestamp:Date.now()};
-    if (postOrderChoice) order.postOrder = { label: postOrderChoice.label||"" };
+    if (tipChoice) order.tip = { label: tipLabel(tipChoice), description: tipChoice.description||"" };
     onOrder(order);
-    setPostOrderChoice(postOrderChoice ? order.postOrder : null);
-    setPostOrderStep(false); setDone(true); setBusy(false);
+    setTip(tipChoice ? order.tip : null);
+    setTipStep(false); setDone(true); setBusy(false);
   },[busy,name,drinkOptions,selections,photo,drink,request,message]);
 
   const submit = () => {
     if (busy||!valid()) return;
     if (!sanitizeName(name)) { setNameErr("Please enter your name"); return; }
-    if (postOrderOn) { setPostOrderStep(true); return; }
+    if (tipsOn) { setTipStep(true); return; } // detour through the tip screen
     placeOrder(null);
   };
 
-  const reset = () => { setName("");setPhoto(null);setDrinkId(null);setPickerOpen(true);setSelections({});setRequest("");setMessage("");setDone(false);setPostOrderStep(false);setPostOrderChoice(null);setNameErr(""); };
+  const reset = () => { setName("");setPhoto(null);setDrinkId(null);setPickerOpen(true);setSelections({});setRequest("");setMessage("");setDone(false);setTipStep(false);setTip(null);setNameErr(""); };
 
   if (!isOpen) return <div className="page"><div className="hero"><LogoDisplay config={config} size="hero"/><div className="hero-name">{config.cafeName}</div><div className="hero-tag">{config.closedMessage||"We're not open yet — check back soon."}</div></div></div>;
 
@@ -1434,27 +1416,28 @@ const Guest = ({ config, isOpen, onOrder }) => {
       </div>
     </div>
   );
-  if (postOrderStep) return (
+  if (tipStep) return (
     <div className="page">
       <div className="hero" style={{paddingTop:56}}>
-        <span className="hero-ico">{config.postOrderEmoji||"🌟"}</span>
-        <div className="hero-name">{config.postOrderTitle||"Leave a compliment"}</div>
-        <div className="hero-tag">{config.postOrderSubtitle||"A little note for your barista."}</div>
+        <span className="hero-ico">💸</span>
+        <div className="hero-name">Add a tip?</div>
+        <div className="hero-tag">100% optional — and 100% fake. No charge, just vibes.</div>
       </div>
       <div className="card">
         <div style={{display:"flex",flexDirection:"column",gap:9}}>
-          {(config.postOrderOptions||[]).map(o=>(
-            <button key={o.id} type="button" className="po-opt" onClick={()=>placeOrder(o)}>
-              <span className="po-opt-label">{o.label}</span>
+          {(config.tipOptions||[]).map(t=>(
+            <button key={t.id} type="button" className="tip-opt" onClick={()=>placeOrder(t)}>
+              <span className="tip-opt-amt">{tipLabel(t)}</span>
+              {t.description&&<span className="tip-opt-desc">{t.description}</span>}
             </button>
           ))}
         </div>
-        <button className="btn btn-o full" style={{marginTop:14}} onClick={()=>placeOrder(null)}>No thanks</button>
+        <button className="btn btn-o full" style={{marginTop:14}} onClick={()=>placeOrder(null)}>No tip, thanks</button>
       </div>
     </div>
   );
 
-  if (done) return <div className="page"><div className="hero" style={{paddingTop:72}}><span className="hero-ico">✅</span><div className="hero-name">Order placed!</div><div className="hero-tag" style={{marginBottom:28}}>{drink?.name} coming right up.</div><button className="btn btn-p" onClick={reset}>Order another</button></div></div>;
+  if (done) return <div className="page"><div className="hero" style={{paddingTop:72}}><span className="hero-ico">✅</span><div className="hero-name">Order placed!</div><div className="hero-tag" style={{marginBottom:tip?14:28}}>{drink?.name} coming right up.</div>{tip&&<div className="hero-tag" style={{marginBottom:28,fontWeight:600}}>Thanks for the {tip.label} tip! 😄 (we didn't actually charge you)</div>}<button className="btn btn-p" onClick={reset}>Order another</button></div></div>;
 
   return (
     <div className="page">
@@ -1601,7 +1584,7 @@ const Queue = ({ orders, completed, config, onComplete, onRemove }) => (
               <div className="qdrink">{o.drink}</div>
               {mods.map((m,i)=><ModLine key={i} m={m} compact/>)}
               {o.request&&<div className="qrequest">{o.request}</div>}
-              {o.postOrder&&<div className="qpo">{o.postOrder.label}</div>}
+              {o.tip&&<div className="qtip">💸 {o.tip.label} tip{o.tip.description?` — ${o.tip.description}`:""}</div>}
             </div>
             <div className="qfooter">
               <button className="btn btn-s sm" style={{flex:1}} onClick={()=>onComplete(o.id)}>✓ Done</button>
@@ -1694,7 +1677,10 @@ const PublicQueue = ({ orders, completed, config, theme, isOpen }) => {
                     }
                     <div style={{flex:1,minWidth:0}}>
                       <div className="qname" style={{fontSize:22}}>{o.name}</div>
+                      <div className="qdrink" style={{fontSize:17,fontWeight:600,marginTop:2}}>{o.drink}</div>
+                      {(o.mods||[]).map((m,i)=><ModLine key={i} m={m} style={{fontSize:13}}/>)}
                       {o.message&&<div className="qmessage">"{o.message}"</div>}
+                      {o.tip&&<div className="qtip">💸 {o.tip.label} tip{o.tip.description?` — ${o.tip.description}`:""}</div>}
                     </div>
                   </div>
                 </div>
@@ -1723,6 +1709,8 @@ const PublicQueue = ({ orders, completed, config, theme, isOpen }) => {
                     }
                     <div style={{flex:1,minWidth:0}}>
                       <div className="qname" style={{fontSize:18}}>{o.name}</div>
+                      <div className="qdrink" style={{fontSize:14.5,fontWeight:600,marginTop:2}}>{o.drink}</div>
+                      {(o.mods||[]).map((m,i)=><ModLine key={i} m={m}/>)}
                       {o.message&&<div className="qmessage" style={{fontSize:12}}>"{o.message}"</div>}
                     </div>
                   </div>
