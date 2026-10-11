@@ -24,15 +24,17 @@ If Common Grounds made your home café a little more fun, consider [buying me a 
 
 ### Guest experience
 - Mobile-friendly order form with your custom menu and web styling
+- Menu grouped into categories (e.g. Seasonal, Coffee, Matcha); the drink list collapses once a drink is picked
 - Optional photo capture visible to the barista and on the public queue
-- Easy selection of preset drink options (e.g. temperature, milk type, etc.)
+- Easy selection of preset drink options (e.g. temperature, milk type, etc.), with your default choices pre-selected
 - Optional freeform text field to post a message to the public queue
+- Optional joke tip screen after ordering (percent or cash options, no real payments)
 
 <div align="center"><img src="screenshots/guest-order.JPG" width="350" /></div>
 
 ### Public queue display (`/#/queue`)
 - A read-only screen to display on a TV or spare monitor
-- Shows who's up next with names, photos, and messages
+- Shows who's up next with names, photos, drinks, chosen options, and messages
 - "Served" section shows completed orders
 
 <div align="center"><img src="screenshots/public-queue.png" width="700" /></div>
@@ -41,7 +43,7 @@ If Common Grounds made your home café a little more fun, consider [buying me a 
 The admin panel is PIN-protected and contains two tabs: **Queue** and **Settings**.
 
 **Queue tab (barista view):**
-- Real-time order queue with name, photo, and drink details
+- Real-time order queue with name, photo, drink details, and any (joke) tip
 - Mark orders done or remove them
 - Completed orders section for reference
 
@@ -49,11 +51,14 @@ The admin panel is PIN-protected and contains two tabs: **Queue** and **Settings
 
 **Settings tab (café configuration):**
 - Change the admin panel PIN
-- Café branding: name, tagline, emoji or image logo
+- Café branding: name, tagline, emoji or image logo, and logo size (Small to XXL)
 - Rich appearance customization: choose from five color palettes or build a custom color scheme, five curated font pairings or mix and match individually
 - Full menu management: add, edit, reorder drinks with descriptions and per-drink options
-- Define custom order options (e.g. Milk, Temperature, Coffee Type, etc.) with names and descriptions per choice
-- Open/close the café, customize the closed message, set an optional guest access code
+- Menu categories: create, rename, and reorder the sections guests see, then assign drinks to them
+- Define custom order options (e.g. Milk, Temperature, Coffee Type, etc.) with names and descriptions per choice, and pick a default choice for each
+- Open/close the café, customize the closed message, set an optional guest access code, and toggle photo capture
+- Tip screen: turn it on and edit each option as a percentage or cash amount with a cheeky description
+- Backup & Restore: export your café setup (and optionally the current queue) to a file, and restore it later or on another device
 - Clear all orders when the event wraps
 
 <div align="center">
@@ -106,6 +111,18 @@ The admin panel is PIN-protected and contains two tabs: **Queue** and **Settings
 #### (Advanced) Local Emulator
 
 If you would prefer to keep everything on your local machine and are comfortable with running developer tools, we offer a local Firebase Realtime Database emulator. See the [start.sh](start.sh) script and emulator-only configs ([firebase.json](firebase.json), [database.rules.json](database.rules.json), [.firebaserc](.firebaserc), and [.env.development](.env.development)).
+
+Requirements: Node.js and Java (the emulator needs it; on macOS, `brew install openjdk`). Then:
+
+```bash
+npm install
+./start.sh
+```
+
+- The app runs at `http://localhost:5173`, and on your network at the address Vite prints (e.g. `http://192.168.1.20:5173`), so guests' phones on the same Wi-Fi can order.
+- Café data is saved to `.emulator-data/` when you stop the server with **Ctrl+C**, and loaded again on the next start. Closing the terminal window instead skips the save.
+- The app must use the emulator's default namespace (`<project-id>-default-rtdb`, already set in `.env.development`), since that is the only one the emulator saves. Data in any other namespace is lost on restart.
+- For an extra safety net, use **Backup & Restore** in the admin panel to export your setup to a file.
 
 ---
 
